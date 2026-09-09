@@ -168,7 +168,7 @@ def to_float(s):
     return 0.0
 
 
-def build_workbook(vouchers, company_name=None):
+def build_workbook(vouchers, company_name=None, from_date=None, to_date=None):
     for v in vouchers:
         v["_date_obj"] = parse_date(v["date"])
         v["_amount_f"] = to_float(v["amount"])
@@ -180,10 +180,17 @@ def build_workbook(vouchers, company_name=None):
     ws1 = wb.active
     ws1.title = "Day Book"
 
-    header_row = 1
+    title_lines = []
     if company_name:
-        ws1.cell(row=1, column=1, value=f"Company: {company_name}").font = TITLE_FONT
-        header_row = 3
+        title_lines.append(f"Company: {company_name}")
+    if from_date or to_date:
+        title_lines.append(f"Period: {from_date or '(earliest)'} to {to_date or '(latest)'}")
+
+    header_row = 1
+    for i, line in enumerate(title_lines, start=1):
+        ws1.cell(row=i, column=1, value=line).font = TITLE_FONT
+    if title_lines:
+        header_row = len(title_lines) + 2
 
     headers1 = ["Date", "Voucher Type", "Voucher Number", "Party Ledger", "Narration", "Amount", "Deleted Flag", "Forex Detail (if any)"]
     for col, h in enumerate(headers1, start=1):
@@ -320,6 +327,8 @@ def main():
     ap.add_argument("input_csv", help="Path to the Tally Day Book export (XML saved as .csv)")
     ap.add_argument("output_xlsx", help="Path to write the formatted Excel workbook")
     ap.add_argument("--company", default=None, help="Company name to show as a title on the Day Book sheet")
+    ap.add_argument("--from-date", default=None, help="Period start date (e.g. 2025-01-01) to show as a title on the Day Book sheet")
+    ap.add_argument("--to-date", default=None, help="Period end date (e.g. 2025-12-31) to show as a title on the Day Book sheet")
     args = ap.parse_args()
 
     lines = reconstruct_lines(args.input_csv)
@@ -328,7 +337,7 @@ def main():
         print("No vouchers found - is this really a Tally Day Book export?", file=sys.stderr)
         sys.exit(1)
 
-    wb = build_workbook(vouchers, company_name=args.company)
+    wb = build_workbook(vouchers, company_name=args.company, from_date=args.from_date, to_date=args.to_date)
     wb.save(args.output_xlsx)
     total_entries = sum(len(v["entries"]) for v in vouchers)
     print(f"Wrote {args.output_xlsx}: {len(vouchers)} vouchers, {total_entries} ledger entries.")
