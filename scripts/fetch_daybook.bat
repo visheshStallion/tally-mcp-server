@@ -6,7 +6,7 @@ cd /d "%~dp0\.."
 
 set TALLY_URL=http://localhost:9200
 set REQUEST_XML=request.xml
-set OUTPUT_CSV=100086daybook2025.csv
+set OUTPUT_CSV=daybook_complete.csv
 
 echo Fetching Day Book data from %TALLY_URL% ...
 echo Using request file: %REQUEST_XML%
