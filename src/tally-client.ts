@@ -2,7 +2,7 @@ import axios from "axios";
 import { XMLBuilder, XMLParser } from "fast-xml-parser";
 
 export interface TallyClientOptions {
-  /** Base URL of Tally's HTTP/XML gateway, e.g. http://localhost:9000 */
+  /** Base URL of Tally's HTTP/XML gateway, e.g. http://localhost:9200 */
   url: string;
   /** Optional company name to scope requests to (defaults to the active company in Tally). */
   company?: string;
@@ -36,7 +36,7 @@ export class TallyError extends Error {
  * Thin client around Tally's HTTP-XML gateway (the same interface used by
  * Tally's ODBC/XML integration). Tally must have the gateway enabled:
  * F1 (Help) > Settings > Connectivity > Client/Server configuration,
- * with "Tally.NET" / HTTP port set (default 9000).
+ * with "Tally.NET" / HTTP port set (default 9200).
  */
 export class TallyClient {
   private readonly url: string;
