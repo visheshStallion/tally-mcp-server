@@ -19,3 +19,22 @@ export function asArray<T>(value: T | T[] | undefined | null): T[] {
   if (value === undefined || value === null) return [];
   return Array.isArray(value) ? value : [value];
 }
+
+/**
+ * Tally XML elements that carry a TYPE attribute (DATE, AMOUNT, NARRATION,
+ * PARTYLEDGERNAME, and most other field tags) parse to
+ * `{ "#text": value, "@_TYPE": "..." }` instead of a plain value, because
+ * the client's XMLParser has `ignoreAttributes: false`. A field with no
+ * text content (an empty/self-closed tag) parses to `{ "@_TYPE": "..." }`
+ * with no "#text" at all. This unwraps both shapes down to a plain
+ * value (empty string for the latter case), leaving already-plain values
+ * (or arrays/objects without a TYPE attribute) untouched.
+ */
+export function unwrapValue(v: unknown): any {
+  if (v !== null && typeof v === "object" && !Array.isArray(v)) {
+    const obj = v as Record<string, unknown>;
+    if ("#text" in obj) return obj["#text"];
+    if ("@_TYPE" in obj) return "";
+  }
+  return v;
+}

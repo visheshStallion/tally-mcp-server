@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { TallyClient, xmlEscape } from "../tally-client.js";
-import { asArray, toJsonContent, toTextError } from "../format.js";
+import { asArray, toJsonContent, toTextError, unwrapValue } from "../format.js";
 
 const VOUCHER_FIELDS = ["DATE", "VOUCHERTYPENAME", "VOUCHERNUMBER", "PARTYLEDGERNAME", "NARRATION", "AMOUNT"];
 
@@ -33,12 +33,12 @@ export function registerVoucherTools(server: McpServer, client: () => TallyClien
           staticVars: { SVFROMDATE: from, SVTODATE: to },
         });
         const vouchers = asArray(collection.VOUCHER).map((v: any) => ({
-          date: v.DATE,
-          voucherType: v.VOUCHERTYPENAME,
-          voucherNumber: v.VOUCHERNUMBER,
-          partyLedger: v.PARTYLEDGERNAME,
-          narration: v.NARRATION,
-          amount: v.AMOUNT,
+          date: unwrapValue(v.DATE),
+          voucherType: unwrapValue(v.VOUCHERTYPENAME),
+          voucherNumber: unwrapValue(v.VOUCHERNUMBER),
+          partyLedger: unwrapValue(v.PARTYLEDGERNAME),
+          narration: unwrapValue(v.NARRATION),
+          amount: unwrapValue(v.AMOUNT),
         }));
         return toJsonContent({ count: vouchers.length, vouchers });
       } catch (err) {

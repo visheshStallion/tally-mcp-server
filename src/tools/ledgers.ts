@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { TallyClient } from "../tally-client.js";
-import { asArray, toJsonContent, toTextError } from "../format.js";
+import { asArray, toJsonContent, toTextError, unwrapValue } from "../format.js";
 
 const LEDGER_FIELDS = ["NAME", "PARENT", "OPENINGBALANCE", "CLOSINGBALANCE", "GSTIN", "MAILINGNAME"];
 
@@ -16,12 +16,12 @@ export function registerLedgerTools(server: McpServer, client: () => TallyClient
       try {
         const collection = await client().fetchCollection("Ledger", LEDGER_FIELDS);
         let ledgers = asArray(collection.LEDGER).map((l: any) => ({
-          name: l.NAME ?? l["@_NAME"],
-          parent: l.PARENT,
-          openingBalance: l.OPENINGBALANCE,
-          closingBalance: l.CLOSINGBALANCE,
-          gstin: l.GSTIN,
-          mailingName: l.MAILINGNAME,
+          name: unwrapValue(l.NAME ?? l["@_NAME"]),
+          parent: unwrapValue(l.PARENT),
+          openingBalance: unwrapValue(l.OPENINGBALANCE),
+          closingBalance: unwrapValue(l.CLOSINGBALANCE),
+          gstin: unwrapValue(l.GSTIN),
+          mailingName: unwrapValue(l.MAILINGNAME),
         }));
         if (nameContains) {
           ledgers = ledgers.filter((l) => l.name?.includes(nameContains));
@@ -52,12 +52,12 @@ export function registerLedgerTools(server: McpServer, client: () => TallyClient
         return toJsonContent({
           found: true,
           ledger: {
-            name: l.NAME,
-            parent: l.PARENT,
-            openingBalance: l.OPENINGBALANCE,
-            closingBalance: l.CLOSINGBALANCE,
-            gstin: l.GSTIN,
-            mailingName: l.MAILINGNAME,
+            name: unwrapValue(l.NAME),
+            parent: unwrapValue(l.PARENT),
+            openingBalance: unwrapValue(l.OPENINGBALANCE),
+            closingBalance: unwrapValue(l.CLOSINGBALANCE),
+            gstin: unwrapValue(l.GSTIN),
+            mailingName: unwrapValue(l.MAILINGNAME),
           },
         });
       } catch (err) {
@@ -74,8 +74,8 @@ export function registerLedgerTools(server: McpServer, client: () => TallyClient
       try {
         const collection = await client().fetchCollection("Group", ["NAME", "PARENT"]);
         const groups = asArray(collection.GROUP).map((g: any) => ({
-          name: g.NAME,
-          parent: g.PARENT,
+          name: unwrapValue(g.NAME),
+          parent: unwrapValue(g.PARENT),
         }));
         return toJsonContent({ count: groups.length, groups });
       } catch (err) {

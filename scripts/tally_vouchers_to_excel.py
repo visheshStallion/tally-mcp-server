@@ -46,7 +46,22 @@ def parse_date(s):
     return datetime.date(int(digits[0:4]), int(digits[4:6]), int(digits[6:8]))
 
 
+def unwrap(v):
+    """Some tally-mcp-server responses pass through the raw parsed-XML shape
+    for fields that carry a TYPE attribute, e.g. {"#text": 123, "@_TYPE":
+    "Amount"} instead of just 123, or just {"@_TYPE": "String"} with no
+    "#text" key at all when the original XML tag was empty. Unwrap both
+    down to a plain value (empty string for the latter case)."""
+    if isinstance(v, dict):
+        if "#text" in v:
+            return v["#text"]
+        if "@_TYPE" in v:
+            return ""
+    return v
+
+
 def to_float(v):
+    v = unwrap(v)
     if v is None:
         return 0.0
     try:
@@ -55,12 +70,24 @@ def to_float(v):
         return 0.0
 
 
+def find_content(obj):
+    """Recursively locate a {"content": [...]} envelope, since the tool
+    result may or may not be wrapped in an extra {"result": ...} layer
+    depending on how it was captured."""
+    if isinstance(obj, dict):
+        if "content" in obj and isinstance(obj["content"], list):
+            return obj
+        for v in obj.values():
+            found = find_content(v)
+            if found is not None:
+                return found
+    return None
+
+
 def load_vouchers(path):
     with open(path, "r", encoding="utf-8", errors="replace") as f:
         raw = f.read().strip()
 
-    # The inspector CLI may print one or more lines; find the line that
-    # parses as the MCP tool-call envelope ({"content":[{"type":"text",...}]}).
     envelope = None
     for line in raw.splitlines():
         line = line.strip()
@@ -70,16 +97,17 @@ def load_vouchers(path):
             candidate = json.loads(line)
         except json.JSONDecodeError:
             continue
-        if isinstance(candidate, dict) and "content" in candidate:
-            envelope = candidate
+        envelope = find_content(candidate)
+        if envelope is not None:
             break
     if envelope is None:
-        # Maybe the whole file is one JSON blob (pretty-printed --format text).
         try:
-            envelope = json.loads(raw)
+            envelope = find_content(json.loads(raw))
         except json.JSONDecodeError:
-            print("Could not find a JSON tool-result envelope in the input file.", file=sys.stderr)
-            sys.exit(1)
+            envelope = None
+    if envelope is None:
+        print("Could not find a JSON tool-result envelope in the input file.", file=sys.stderr)
+        sys.exit(1)
 
     if envelope.get("isError"):
         text = envelope.get("content", [{}])[0].get("text", "")
@@ -88,14 +116,19 @@ def load_vouchers(path):
 
     inner_text = envelope["content"][0]["text"]
     payload = json.loads(inner_text)
-    return payload.get("vouchers", [])
+    vouchers = payload.get("vouchers", [])
+    for v in vouchers:
+        for key in ("date", "voucherType", "voucherNumber", "partyLedger", "narration", "amount"):
+            if key in v:
+                v[key] = unwrap(v[key])
+    return vouchers
 
 
 def build_workbook(vouchers, company_name=None):
     for v in vouchers:
         v["_date_obj"] = parse_date(v.get("date"))
         v["_amount_f"] = to_float(v.get("amount"))
-    vouchers.sort(key=lambda v: (v["_date_obj"] if isinstance(v["_date_obj"], datetime.date) else datetime.date.min, v.get("voucherNumber") or ""))
+    vouchers.sort(key=lambda v: (v["_date_obj"] if isinstance(v["_date_obj"], datetime.date) else datetime.date.min, str(v.get("voucherNumber") or "")))
 
     wb = openpyxl.Workbook()
     ws = wb.active

@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { TallyClient } from "../tally-client.js";
-import { asArray, toJsonContent, toTextError } from "../format.js";
+import { asArray, toJsonContent, toTextError, unwrapValue } from "../format.js";
 
 const STOCK_FIELDS = ["NAME", "PARENT", "BASEUNITS", "CLOSINGBALANCE", "CLOSINGVALUE", "CLOSINGRATE"];
 
@@ -16,12 +16,12 @@ export function registerStockItemTools(server: McpServer, client: () => TallyCli
       try {
         const collection = await client().fetchCollection("StockItem", STOCK_FIELDS);
         let items = asArray(collection.STOCKITEM).map((s: any) => ({
-          name: s.NAME,
-          parent: s.PARENT,
-          baseUnit: s.BASEUNITS,
-          closingBalance: s.CLOSINGBALANCE,
-          closingValue: s.CLOSINGVALUE,
-          closingRate: s.CLOSINGRATE,
+          name: unwrapValue(s.NAME),
+          parent: unwrapValue(s.PARENT),
+          baseUnit: unwrapValue(s.BASEUNITS),
+          closingBalance: unwrapValue(s.CLOSINGBALANCE),
+          closingValue: unwrapValue(s.CLOSINGVALUE),
+          closingRate: unwrapValue(s.CLOSINGRATE),
         }));
         if (nameContains) {
           items = items.filter((i) => i.name?.includes(nameContains));
@@ -52,12 +52,12 @@ export function registerStockItemTools(server: McpServer, client: () => TallyCli
         return toJsonContent({
           found: true,
           stockItem: {
-            name: s.NAME,
-            parent: s.PARENT,
-            baseUnit: s.BASEUNITS,
-            closingBalance: s.CLOSINGBALANCE,
-            closingValue: s.CLOSINGVALUE,
-            closingRate: s.CLOSINGRATE,
+            name: unwrapValue(s.NAME),
+            parent: unwrapValue(s.PARENT),
+            baseUnit: unwrapValue(s.BASEUNITS),
+            closingBalance: unwrapValue(s.CLOSINGBALANCE),
+            closingValue: unwrapValue(s.CLOSINGVALUE),
+            closingRate: unwrapValue(s.CLOSINGRATE),
           },
         });
       } catch (err) {

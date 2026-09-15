@@ -1,6 +1,6 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { TallyClient } from "../tally-client.js";
-import { toJsonContent, toTextError } from "../format.js";
+import { toJsonContent, toTextError, unwrapValue } from "../format.js";
 
 export function registerCompanyTools(server: McpServer, client: () => TallyClient) {
   server.tool(
@@ -13,7 +13,7 @@ export function registerCompanyTools(server: McpServer, client: () => TallyClien
         const companies = data?.ENVELOPE?.BODY?.DATA?.COLLECTION?.COMPANY ?? [];
         const names = (Array.isArray(companies) ? companies : [companies])
           .filter(Boolean)
-          .map((c: any) => c?.["@_NAME"] ?? c?.NAME ?? c);
+          .map((c: any) => unwrapValue(c?.["@_NAME"] ?? c?.NAME ?? c));
         return toJsonContent({ companies: names });
       } catch (err) {
         return toTextError(err);
