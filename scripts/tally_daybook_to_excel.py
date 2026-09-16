@@ -76,7 +76,7 @@ def parse_vouchers(lines):
                 "vchtype": unescape(m.group(1)) if m else "",
                 "date": "", "narration": "", "vouchertypename": "",
                 "party": "", "vouchernumber": "", "isdeleted": "",
-                "amount": "", "entries": [],
+                "flddeleted": "", "amount": "", "entries": [],
             }
             in_ledger_section = False
             continue
@@ -126,6 +126,11 @@ def parse_vouchers(lines):
             cur["vouchernumber"] = content
         elif tag == "ISDELETED" and not cur["isdeleted"]:
             cur["isdeleted"] = content
+        elif tag == "UDF:FLDDELETED" and not cur["flddeleted"]:
+            # A custom Tally field some setups use to mark a voucher as
+            # deleted; unlike the native ISDELETED tag (which stays "No"
+            # even for these), this one is the reliable signal.
+            cur["flddeleted"] = content
         elif tag == "AMOUNT" and not in_ledger_section and not cur["amount"]:
             cur["amount"] = content
 
@@ -168,11 +173,19 @@ def to_float(s):
     return 0.0
 
 
-def build_workbook(vouchers, company_name=None, from_date=None, to_date=None):
-    for v in vouchers:
+def build_workbook(all_vouchers, company_name=None, from_date=None, to_date=None):
+    for v in all_vouchers:
         v["_date_obj"] = parse_date(v["date"])
         v["_amount_f"] = to_float(v["amount"])
-    vouchers.sort(key=lambda v: (v["_date_obj"] or datetime.date.min, v["vouchernumber"]))
+    all_vouchers.sort(key=lambda v: (v["_date_obj"] or datetime.date.min, v["vouchernumber"]))
+
+    # UDF:FLDDELETED is the reliable "this voucher was deleted" signal on
+    # this Tally setup (the native ISDELETED tag stays "No" regardless).
+    # Keep deleted vouchers out of the Day Book / Ledger Entries / By
+    # Voucher Type sheets, but don't silently drop them - list them on
+    # their own sheet.
+    vouchers = [v for v in all_vouchers if v.get("flddeleted") != "Yes"]
+    deleted_vouchers = [v for v in all_vouchers if v.get("flddeleted") == "Yes"]
 
     wb = openpyxl.Workbook()
 
@@ -319,6 +332,35 @@ def build_workbook(vouchers, company_name=None, from_date=None, to_date=None):
         ws3.column_dimensions[get_column_letter(i)].width = w
     ws3.freeze_panes = "A2"
 
+    # ---------------- Sheet 4: Deleted Vouchers (excluded above) ----------------
+    if deleted_vouchers:
+        ws4 = wb.create_sheet("Deleted Vouchers")
+        headers4 = ["Date", "Voucher Type", "Voucher Number", "Party Ledger", "Narration", "Amount"]
+        for col, h in enumerate(headers4, start=1):
+            c = ws4.cell(row=1, column=col, value=h)
+            c.font = HEADER_FONT
+            c.fill = HEADER_FILL
+            c.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+            c.border = BORDER
+
+        r = 2
+        for v in deleted_vouchers:
+            vals = [v["_date_obj"], v["vouchertypename"] or v["vchtype"], v["vouchernumber"], v["party"], v["narration"], v["_amount_f"]]
+            for col, val in enumerate(vals, start=1):
+                c = ws4.cell(row=r, column=col, value=val)
+                c.font = BODY_FONT
+                c.border = BORDER
+                if col == 1:
+                    c.number_format = DATE_FMT
+                if col == 6:
+                    c.number_format = NUM_FMT
+            r += 1
+
+        widths4 = [13, 20, 20, 34, 55, 18]
+        for i, w in enumerate(widths4, start=1):
+            ws4.column_dimensions[get_column_letter(i)].width = w
+        ws4.freeze_panes = "A2"
+
     return wb
 
 
@@ -339,8 +381,11 @@ def main():
 
     wb = build_workbook(vouchers, company_name=args.company, from_date=args.from_date, to_date=args.to_date)
     wb.save(args.output_xlsx)
-    total_entries = sum(len(v["entries"]) for v in vouchers)
-    print(f"Wrote {args.output_xlsx}: {len(vouchers)} vouchers, {total_entries} ledger entries.")
+    deleted_count = sum(1 for v in vouchers if v.get("flddeleted") == "Yes")
+    active_count = len(vouchers) - deleted_count
+    total_entries = sum(len(v["entries"]) for v in vouchers if v.get("flddeleted") != "Yes")
+    print(f"Wrote {args.output_xlsx}: {active_count} active vouchers, {total_entries} ledger entries"
+          f"{f', {deleted_count} deleted vouchers excluded (see Deleted Vouchers sheet)' if deleted_count else ''}.")
 
 
 if __name__ == "__main__":

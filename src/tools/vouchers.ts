@@ -17,7 +17,8 @@ function toTallyDate(input: string): string {
 export function registerVoucherTools(server: McpServer, client: () => TallyClient) {
   server.tool(
     "list_vouchers",
-    "List transaction vouchers (Sales, Purchase, Payment, Receipt, Journal, etc.) in the active company within a date range.",
+    "List transaction vouchers (Sales, Purchase, Payment, Receipt, Journal, etc.) in the active company within a date range. " +
+      "Vouchers flagged as deleted (via the UDF:FLDDELETED custom field, where present) are excluded; the response's excludedDeleted count says how many were left out.",
     {
       fromDate: z.string().describe("Start date, inclusive, as YYYY-MM-DD or YYYYMMDD."),
       toDate: z.string().describe("End date, inclusive, as YYYY-MM-DD or YYYYMMDD."),
@@ -32,15 +33,24 @@ export function registerVoucherTools(server: McpServer, client: () => TallyClien
           filters,
           staticVars: { SVFROMDATE: from, SVTODATE: to },
         });
-        const vouchers = asArray(collection.VOUCHER).map((v: any) => ({
-          date: unwrapValue(v.DATE),
-          voucherType: unwrapValue(v.VOUCHERTYPENAME),
-          voucherNumber: unwrapValue(v.VOUCHERNUMBER),
-          partyLedger: unwrapValue(v.PARTYLEDGERNAME),
-          narration: unwrapValue(v.NARRATION),
-          amount: unwrapValue(v.AMOUNT),
-        }));
-        return toJsonContent({ count: vouchers.length, vouchers });
+        const allVouchers = asArray(collection.VOUCHER);
+        // The native ISDELETED tag stays "No" even for deleted vouchers on
+        // some Tally setups; UDF:FLDDELETED (a custom field some companies
+        // track) is the reliable signal, when present.
+        const isFldDeleted = (v: any) =>
+          unwrapValue(v?.["UDF:FLDDELETED.LIST"]?.["UDF:FLDDELETED"]) === "Yes";
+        const excludedDeleted = allVouchers.filter(isFldDeleted).length;
+        const vouchers = allVouchers
+          .filter((v: any) => !isFldDeleted(v))
+          .map((v: any) => ({
+            date: unwrapValue(v.DATE),
+            voucherType: unwrapValue(v.VOUCHERTYPENAME),
+            voucherNumber: unwrapValue(v.VOUCHERNUMBER),
+            partyLedger: unwrapValue(v.PARTYLEDGERNAME),
+            narration: unwrapValue(v.NARRATION),
+            amount: unwrapValue(v.AMOUNT),
+          }));
+        return toJsonContent({ count: vouchers.length, excludedDeleted, vouchers });
       } catch (err) {
         return toTextError(err);
       }
