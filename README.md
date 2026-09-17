@@ -15,8 +15,8 @@ installed inside Tally itself.
    reachable host.
 2. The Tally XML/HTTP gateway enabled:
    - In Tally, go to **Gateway of Tally > F1 (Help) > Settings > Connectivity**.
-   - Ensure **"Client/Server configuration"** is set up and the port (e.g.
-     `9000`) is open. Tally must have a company loaded for most tools to
+   - Ensure **"Client/Server configuration"** is set up and the port (default
+     `9200`) is open. Tally must have a company loaded for most tools to
      return data.
 3. Node.js 18+.
 
@@ -33,7 +33,7 @@ The server reads its Tally connection settings from environment variables:
 
 | Variable        | Default                 | Description                                      |
 |-----------------|--------------------------|---------------------------------------------------|
-| `TALLY_URL`     | `http://localhost:9000` | Base URL of the Tally HTTP/XML gateway.           |
+| `TALLY_URL`     | `http://localhost:9200` | Base URL of the Tally HTTP/XML gateway.           |
 | `TALLY_COMPANY` | _(active company)_      | Company name to scope requests to (optional).     |
 
 ## Running
@@ -55,7 +55,7 @@ Add to your MCP client's server config (e.g. `claude_desktop_config.json`):
       "command": "node",
       "args": ["/absolute/path/to/tally-mcp-server/dist/index.js"],
       "env": {
-        "TALLY_URL": "http://localhost:9000",
+        "TALLY_URL": "http://localhost:9200",
         "TALLY_COMPANY": "My Company Name"
       }
     }

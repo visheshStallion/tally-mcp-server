@@ -8,7 +8,7 @@ import { registerStockItemTools } from "./tools/stock-items.js";
 import { registerVoucherTools } from "./tools/vouchers.js";
 import { registerReportTools } from "./tools/reports.js";
 
-const TALLY_URL = process.env.TALLY_URL ?? "http://localhost:9000";
+const TALLY_URL = process.env.TALLY_URL ?? "http://localhost:9200";
 const TALLY_COMPANY = process.env.TALLY_COMPANY;
 
 const tallyClient = new TallyClient({ url: TALLY_URL, company: TALLY_COMPANY });
