@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Tally Reports</title>
+<style>
+  :root {
+    --navy: #1f4e78;
+    --navy-dark: #163a59;
+    --bg: #f4f6f8;
+    --border: #d9dee3;
+    --text: #1c2733;
+    --muted: #5b6b7a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+  header {
+    background: var(--navy);
+    color: white;
+    padding: 20px 32px;
+  }
+  header h1 { margin: 0; font-size: 20px; }
+  header p { margin: 4px 0 0; font-size: 13px; color: #cfe0ee; }
+  main {
+    max-width: 760px;
+    margin: 32px auto;
+    padding: 0 20px;
+  }
+  .card {
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 24px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  }
+  label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 6px;
+    color: var(--muted);
+  }
+  .field { margin-bottom: 18px; }
+  select, input[type="date"], input[type="text"] {
+    width: 100%;
+    padding: 9px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 14px;
+    color: var(--text);
+    background: white;
+  }
+  .date-row { display: flex; gap: 16px; }
+  .date-row .field { flex: 1; }
+  #customReportField { display: none; }
+  button {
+    background: var(--navy);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 11px 20px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button:hover { background: var(--navy-dark); }
+  button:disabled { background: #9db4c4; cursor: not-allowed; }
+  .hint { font-size: 12px; color: var(--muted); margin-top: 6px; }
+  #status {
+    margin-top: 16px;
+    font-size: 13px;
+    padding: 10px 12px;
+    border-radius: 6px;
+    display: none;
+  }
+  #status.error { display: block; background: #fdecea; color: #9c1c0e; border: 1px solid #f5c6c0; }
+  #status.info { display: block; background: #e8f1f8; color: var(--navy-dark); border: 1px solid #cfe0ee; }
+  #status.success { display: block; background: #e8f6ec; color: #1e6b34; border: 1px solid #c6e6cf; }
+  footer { text-align: center; font-size: 12px; color: var(--muted); margin: 24px 0 40px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Tally Reports</h1>
+  <p>Pick a standard TallyPrime report, choose a date range, and export it to Excel.</p>
+</header>
+<main>
+  <div class="card">
+    <div class="field">
+      <label for="reportSelect">Report</label>
+      <select id="reportSelect"></select>
+    </div>
+
+    <div id="customReportField" class="field">
+      <label for="customReportName">Custom report name</label>
+      <input type="text" id="customReportName" placeholder='e.g. "GSTR-1" or "Group Summary"' />
+    </div>
+
+    <div class="date-row">
+      <div class="field">
+        <label for="fromDate" id="fromDateLabel">From date</label>
+        <input type="date" id="fromDate" />
+      </div>
+      <div class="field">
+        <label for="toDate" id="toDateLabel">To date</label>
+        <input type="date" id="toDate" />
+      </div>
+    </div>
+    <p class="hint">Leave dates blank to use Tally's current period, where the report allows it.</p>
+
+    <button id="exportBtn">Export to Excel</button>
+    <div id="status"></div>
+  </div>
+</main>
+<footer>tally-mcp-server &middot; connects to your local Tally HTTP/XML gateway</footer>
+
+<script>
+  const reportSelect = document.getElementById("reportSelect");
+  const customField = document.getElementById("customReportField");
+  const customReportName = document.getElementById("customReportName");
+  const fromDate = document.getElementById("fromDate");
+  const toDate = document.getElementById("toDate");
+  const fromDateLabel = document.getElementById("fromDateLabel");
+  const toDateLabel = document.getElementById("toDateLabel");
+  const exportBtn = document.getElementById("exportBtn");
+  const status = document.getElementById("status");
+
+  let reports = [];
+
+  function setStatus(kind, message) {
+    status.className = kind;
+    status.textContent = message;
+  }
+
+  function updateFieldsForSelection() {
+    const entry = reports.find((r) => r.id === reportSelect.value);
+    if (!entry) return;
+    customField.style.display = entry.id === "custom_report" ? "block" : "none";
+    if (entry.dateMode === "asOf") {
+      fromDate.closest(".field").style.display = "none";
+      toDateLabel.textContent = "As of date";
+    } else {
+      fromDate.closest(".field").style.display = "block";
+      fromDateLabel.textContent = "From date";
+      toDateLabel.textContent = "To date";
+    }
+  }
+
+  async function loadReports() {
+    const res = await fetch("/api/reports");
+    reports = await res.json();
+    reportSelect.innerHTML = reports.map((r) => `<option value="${r.id}">${r.label}</option>`).join("");
+    updateFieldsForSelection();
+  }
+
+  reportSelect.addEventListener("change", updateFieldsForSelection);
+
+  exportBtn.addEventListener("click", async () => {
+    const entry = reports.find((r) => r.id === reportSelect.value);
+    if (!entry) return;
+    if (entry.id === "custom_report" && !customReportName.value.trim()) {
+      setStatus("error", "Enter the exact Tally report name for a custom report.");
+      return;
+    }
+
+    const params = new URLSearchParams({ report: entry.id });
+    if (entry.dateMode === "range" && fromDate.value) params.set("fromDate", fromDate.value);
+    if (toDate.value) params.set("toDate", toDate.value);
+    if (entry.id === "custom_report") params.set("customReportName", customReportName.value.trim());
+
+    exportBtn.disabled = true;
+    setStatus("info", "Fetching data from Tally...");
+
+    try {
+      const res = await fetch(`/api/export?${params.toString()}`);
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || `Export failed (HTTP ${res.status}).`);
+      }
+      const blob = await res.blob();
+      const disposition = res.headers.get("Content-Disposition") || "";
+      const match = disposition.match(/filename="?([^"]+)"?/);
+      const filename = match ? match[1] : `${entry.id}.xlsx`;
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+
+      setStatus("success", `Downloaded ${filename}.`);
+    } catch (err) {
+      setStatus("error", err.message || String(err));
+    } finally {
+      exportBtn.disabled = false;
+    }
+  });
+
+  loadReports().catch((err) => setStatus("error", `Could not load report list: ${err.message}`));
+</script>
+</body>
+</html>

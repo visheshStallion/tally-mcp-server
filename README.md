@@ -90,6 +90,44 @@ Add to your MCP client's server config (e.g. `claude_desktop_config.json`):
 | `get_movement_analysis`| Fetch the Movement Analysis report over a date range.                   |
 | `get_custom_report`   | Fetch any other standard/statutory report (e.g. GSTR-1) by exact name.   |
 
+## Web UI (Excel export)
+
+Alongside the MCP server, the project includes a small local web page for
+browsing the standard reports above and exporting one straight to Excel with
+a start/end date filter - no MCP client required.
+
+```bash
+npm run web        # run directly with tsx, no build step
+# or, after `npm run build`:
+npm run web:start   # run the compiled server
+```
+
+This starts an HTTP server (default `http://127.0.0.1:4000`, only bound to
+localhost) serving a page where you can:
+
+1. Pick a report from the dropdown (all the report tools listed above, plus
+   a "Custom / other report..." option for typing any other Tally report
+   name, e.g. a GST return).
+2. Set a **From date** / **To date** (or a single **As of date** for
+   point-in-time reports like the Balance Sheet).
+3. Click **Export to Excel** to download an `.xlsx` file fetched live from
+   Tally for that date range.
+
+Day Book, Sales Register, and Purchase Register are exported as a flat
+voucher table. Statement-style reports (Balance Sheet, P&L, Cash Flow,
+Ratio Analysis, etc.) don't share one common layout, so the export
+auto-detects the largest repeating structure in Tally's response for the
+main "Data" sheet, and always includes a "Raw JSON" sheet with the complete
+response as a fallback.
+
+Configure it with the same `TALLY_URL` / `TALLY_COMPANY` environment
+variables as the MCP server, plus:
+
+| Variable   | Default     | Description                                   |
+|------------|-------------|------------------------------------------------|
+| `WEB_PORT` | `4000`      | Port the web UI listens on.                    |
+| `WEB_HOST` | `127.0.0.1` | Host/interface to bind to.                     |
+
 ## Development
 
 ```bash
