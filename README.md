@@ -11,11 +11,12 @@ installed inside Tally itself.
 
 ## Prerequisites
 
-1. **Tally** (TallyPrime or Tally.ERP 9) running locally or on a reachable host.
+1. **Tally** (TallyPrime 7.0 or later, or Tally.ERP 9) running locally or on a
+   reachable host.
 2. The Tally XML/HTTP gateway enabled:
    - In Tally, go to **Gateway of Tally > F1 (Help) > Settings > Connectivity**.
-   - Ensure **"Client/Server configuration"** is set up and the port (default
-     `9200`) is open. Tally must have a company loaded for most tools to
+   - Ensure **"Client/Server configuration"** is set up and the port (e.g.
+     `9000`) is open. Tally must have a company loaded for most tools to
      return data.
 3. Node.js 18+.
 
@@ -32,7 +33,7 @@ The server reads its Tally connection settings from environment variables:
 
 | Variable        | Default                 | Description                                      |
 |-----------------|--------------------------|---------------------------------------------------|
-| `TALLY_URL`     | `http://localhost:9200` | Base URL of the Tally HTTP/XML gateway.           |
+| `TALLY_URL`     | `http://localhost:9000` | Base URL of the Tally HTTP/XML gateway.           |
 | `TALLY_COMPANY` | _(active company)_      | Company name to scope requests to (optional).     |
 
 ## Running
@@ -54,7 +55,7 @@ Add to your MCP client's server config (e.g. `claude_desktop_config.json`):
       "command": "node",
       "args": ["/absolute/path/to/tally-mcp-server/dist/index.js"],
       "env": {
-        "TALLY_URL": "http://localhost:9200",
+        "TALLY_URL": "http://localhost:9000",
         "TALLY_COMPANY": "My Company Name"
       }
     }
@@ -77,7 +78,17 @@ Add to your MCP client's server config (e.g. `claude_desktop_config.json`):
 | `get_balance_sheet`   | Fetch the Balance Sheet as of a date.                                    |
 | `get_profit_and_loss` | Fetch the Profit & Loss statement over a date range.                     |
 | `get_trial_balance`   | Fetch the Trial Balance as of a date.                                    |
+| `get_cash_flow`       | Fetch the Cash Flow statement over a date range.                         |
+| `get_funds_flow`      | Fetch the Funds Flow statement over a date range.                        |
+| `get_ratio_analysis`  | Fetch the Ratio Analysis report over a date range.                       |
 | `get_day_book`        | Fetch the Day Book over a date range.                                    |
+| `get_sales_register`  | Fetch the Sales Register over a date range.                              |
+| `get_purchase_register`| Fetch the Purchase Register over a date range.                          |
+| `get_receivables`     | Fetch Outstanding Receivables (Bills Receivable) as of a date.           |
+| `get_payables`        | Fetch Outstanding Payables (Bills Payable) as of a date.                 |
+| `get_stock_summary`   | Fetch the Stock Summary as of a date.                                    |
+| `get_movement_analysis`| Fetch the Movement Analysis report over a date range.                   |
+| `get_custom_report`   | Fetch any other standard/statutory report (e.g. GSTR-1) by exact name.   |
 
 ## Development
 
