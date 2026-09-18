@@ -34,6 +34,16 @@ function safeFilenamePart(s: string): string {
   return s.replace(/[^a-z0-9]+/gi, "_").replace(/^_+|_+$/g, "") || "report";
 }
 
+app.get("/api/company", async (_req, res) => {
+  try {
+    const companies = await tallyClient.listCompanies();
+    const active = TALLY_COMPANY ?? (companies.length === 1 ? companies[0] : null);
+    res.json({ companies, active });
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message ?? String(err) });
+  }
+});
+
 app.get("/api/reports", (_req, res) => {
   res.json(REPORT_CATALOG.map(({ id, label, dateMode }) => ({ id, label, dateMode })));
 });

@@ -27,6 +27,18 @@
   }
   header h1 { margin: 0; font-size: 20px; }
   header p { margin: 4px 0 0; font-size: 13px; color: #cfe0ee; }
+  .company-badge {
+    display: inline-block;
+    margin-top: 12px;
+    padding: 5px 12px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    background: rgba(255, 255, 255, 0.12);
+    color: #e8f1f8;
+  }
+  .company-badge.ok { background: rgba(46, 160, 90, 0.25); color: #d9f7e3; }
+  .company-badge.error { background: rgba(217, 83, 79, 0.25); color: #fbe2e0; }
   main {
     max-width: 760px;
     margin: 32px auto;
@@ -89,6 +101,7 @@
 <header>
   <h1>Tally Reports</h1>
   <p>Pick a standard TallyPrime report, choose a date range, and export it to Excel.</p>
+  <div id="companyBadge" class="company-badge">Connecting to Tally...</div>
 </header>
 <main>
   <div class="card">
@@ -205,7 +218,35 @@
     }
   });
 
+  async function loadCompany() {
+    const badge = document.getElementById("companyBadge");
+    try {
+      const res = await fetch("/api/company");
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || `HTTP ${res.status}`);
+      }
+      const { companies, active } = await res.json();
+      badge.classList.remove("error");
+      if (active) {
+        badge.classList.add("ok");
+        badge.textContent = `Connected: ${active}`;
+      } else if (companies.length > 1) {
+        badge.classList.add("ok");
+        badge.textContent = `Connected — ${companies.length} companies open: ${companies.join(", ")}`;
+      } else {
+        badge.classList.add("ok");
+        badge.textContent = "Connected to Tally (no company open)";
+      }
+    } catch (err) {
+      badge.classList.remove("ok");
+      badge.classList.add("error");
+      badge.textContent = `Not connected to Tally: ${err.message}`;
+    }
+  }
+
   loadReports().catch((err) => setStatus("error", `Could not load report list: ${err.message}`));
+  loadCompany();
 </script>
 </body>
 </html>

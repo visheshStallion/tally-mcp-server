@@ -169,6 +169,20 @@ export class TallyClient {
     return parsed?.ENVELOPE?.BODY?.DATA?.COLLECTION ?? {};
   }
 
+  /** Lists the names of companies currently open/loaded in Tally. */
+  async listCompanies(): Promise<string[]> {
+    const data = await this.exportReport("List of Companies");
+    const companies = data?.ENVELOPE?.BODY?.DATA?.COLLECTION?.COMPANY ?? [];
+    return (Array.isArray(companies) ? companies : [companies]).filter(Boolean).map((c: any) => {
+      const raw = c?.["@_NAME"] ?? c?.NAME ?? c;
+      if (raw !== null && typeof raw === "object" && !Array.isArray(raw)) {
+        if ("#text" in raw) return raw["#text"];
+        if ("@_TYPE" in raw) return "";
+      }
+      return raw;
+    });
+  }
+
   /** Runs an "Export Data" request for a built-in Tally report/collection. */
   async exportReport(reportName: string, staticVars: Record<string, string> = {}): Promise<any> {
     const envelope = {
