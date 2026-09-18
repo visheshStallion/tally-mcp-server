@@ -169,17 +169,26 @@ export class TallyClient {
     return parsed?.ENVELOPE?.BODY?.DATA?.COLLECTION ?? {};
   }
 
-  /** Lists the names of companies currently open/loaded in Tally. */
+  /**
+   * Lists the names of companies currently open/loaded in Tally.
+   *
+   * Uses a native TDL collection (TYPE=Company), the same mechanism as
+   * fetchCollection's Ledger/Group/StockItem/Voucher lookups, rather than
+   * exportReport("List of Companies") - some Tally versions (e.g.
+   * TallyPrime 7.0) reject that as an unknown report name even though the
+   * Company collection type itself is always available.
+   */
   async listCompanies(): Promise<string[]> {
-    const data = await this.exportReport("List of Companies");
-    const companies = data?.ENVELOPE?.BODY?.DATA?.COLLECTION?.COMPANY ?? [];
-    return (Array.isArray(companies) ? companies : [companies]).filter(Boolean).map((c: any) => {
-      const raw = c?.["@_NAME"] ?? c?.NAME ?? c;
-      if (raw !== null && typeof raw === "object" && !Array.isArray(raw)) {
-        if ("#text" in raw) return raw["#text"];
-        if ("@_TYPE" in raw) return "";
+    const collection = await this.fetchCollection("Company", ["NAME"]);
+    const raw = collection?.COMPANY ?? [];
+    const companies = Array.isArray(raw) ? raw : [raw];
+    return companies.filter(Boolean).map((c: any) => {
+      const value = c?.NAME ?? c?.["@_NAME"] ?? c;
+      if (value !== null && typeof value === "object" && !Array.isArray(value)) {
+        if ("#text" in value) return value["#text"];
+        if ("@_TYPE" in value) return "";
       }
-      return raw;
+      return value;
     });
   }
 
