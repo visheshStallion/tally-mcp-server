@@ -123,10 +123,33 @@ response as a fallback.
 Configure it with the same `TALLY_URL` / `TALLY_COMPANY` environment
 variables as the MCP server, plus:
 
-| Variable   | Default     | Description                                   |
-|------------|-------------|------------------------------------------------|
-| `WEB_PORT` | `4000`      | Port the web UI listens on.                    |
-| `WEB_HOST` | `127.0.0.1` | Host/interface to bind to.                     |
+| Variable       | Default     | Description                                        |
+|----------------|-------------|-----------------------------------------------------|
+| `WEB_PORT`     | `4000`      | Port the web UI listens on.                        |
+| `WEB_HOST`     | `127.0.0.1` | Host/interface to bind to.                         |
+| `WEB_USERNAME` | _(none)_    | Username for HTTP Basic Auth (set with `WEB_PASSWORD`). |
+| `WEB_PASSWORD` | _(none)_    | Password for HTTP Basic Auth (set with `WEB_USERNAME`). |
+
+### Exposing it beyond your own machine
+
+By default the web UI only binds to `127.0.0.1` (this machine only) and has
+**no login** - fine for local use. If you set `WEB_HOST` to `0.0.0.0` or a
+network/public IP so other devices can reach it, **also set `WEB_USERNAME`
+and `WEB_PASSWORD`** to turn on HTTP Basic Auth. Both must be set together
+(the server refuses to start if only one is set), and if you bind to a
+non-localhost address with neither set, the server prints a loud warning at
+startup - it still runs, since local-network use without auth is a valid
+choice, but anyone who can reach an unprotected instance can view and
+export your Tally company's financial data, so:
+
+- Never port-forward this to the public internet without setting those two
+  variables.
+- Prefer a VPN into your network over exposing the port directly when
+  possible.
+
+```bash
+WEB_HOST=0.0.0.0 WEB_USERNAME=admin WEB_PASSWORD='a-strong-password' npm run web
+```
 
 ## Development
 

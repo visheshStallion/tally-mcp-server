@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import crypto from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import express from "express";
@@ -11,6 +12,15 @@ const TALLY_URL = process.env.TALLY_URL ?? "http://localhost:9200";
 const TALLY_COMPANY = process.env.TALLY_COMPANY;
 const WEB_PORT = Number(process.env.WEB_PORT ?? 4000);
 const WEB_HOST = process.env.WEB_HOST ?? "127.0.0.1";
+const WEB_USERNAME = process.env.WEB_USERNAME;
+const WEB_PASSWORD = process.env.WEB_PASSWORD;
+
+if ((WEB_USERNAME && !WEB_PASSWORD) || (!WEB_USERNAME && WEB_PASSWORD)) {
+  console.error("Set both WEB_USERNAME and WEB_PASSWORD, or neither - a single one is not enough to enable login.");
+  process.exit(1);
+}
+const authEnabled = Boolean(WEB_USERNAME && WEB_PASSWORD);
+const isLocalHost = WEB_HOST === "127.0.0.1" || WEB_HOST === "localhost" || WEB_HOST === "::1";
 
 const tallyClient = new TallyClient({ url: TALLY_URL, company: TALLY_COMPANY });
 
@@ -18,6 +28,24 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const publicDir = path.join(__dirname, "../../public");
 
 const app = express();
+
+/** Constant-time HTTP Basic Auth check, only active when WEB_USERNAME/WEB_PASSWORD are both set. */
+function checkAuth(req: express.Request, res: express.Response, next: express.NextFunction) {
+  if (!authEnabled) return next();
+
+  const header = req.headers.authorization;
+  if (header?.startsWith("Basic ")) {
+    const [user, pass] = Buffer.from(header.slice(6), "base64").toString("utf8").split(":");
+    const userOk = user?.length === WEB_USERNAME!.length && crypto.timingSafeEqual(Buffer.from(user), Buffer.from(WEB_USERNAME!));
+    const passOk = pass?.length === WEB_PASSWORD!.length && crypto.timingSafeEqual(Buffer.from(pass), Buffer.from(WEB_PASSWORD!));
+    if (userOk && passOk) return next();
+  }
+
+  res.setHeader("WWW-Authenticate", 'Basic realm="Tally Reports"');
+  res.status(401).send("Authentication required.");
+}
+
+app.use(checkAuth);
 app.use(express.static(publicDir));
 
 /** Normalizes a UI date (YYYY-MM-DD, from an <input type="date">) into Tally's YYYYMMDD format. */
@@ -127,4 +155,13 @@ app.listen(WEB_PORT, WEB_HOST, () => {
   console.error(
     `tally-mcp-server web UI running at http://${WEB_HOST}:${WEB_PORT} (Tally gateway: ${TALLY_URL}${TALLY_COMPANY ? `, company: ${TALLY_COMPANY}` : ""})`
   );
+  console.error(authEnabled ? "Login required (WEB_USERNAME/WEB_PASSWORD set)." : "No login required.");
+  if (!isLocalHost && !authEnabled) {
+    console.error(
+      "\n*** WARNING ***\n" +
+        `WEB_HOST is set to "${WEB_HOST}" (not localhost) but WEB_USERNAME/WEB_PASSWORD are not set.\n` +
+        "Anyone who can reach this address can view and export your Tally financial data.\n" +
+        "Set WEB_USERNAME and WEB_PASSWORD before exposing this beyond your own machine.\n"
+    );
+  }
 });
