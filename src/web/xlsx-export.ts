@@ -97,6 +97,47 @@ export function buildLedgerWorkbook(
   return wb;
 }
 
+/** Builds a workbook with one flat table of ledger groups (All Group Ledgers). */
+export function buildGroupWorkbook(
+  groups: Array<{ name?: string; parent?: string; openingBalance?: number; closingBalance?: number }>,
+  sheetTitle: string,
+  titleLines: string[]
+): ExcelJS.Workbook {
+  const wb = new ExcelJS.Workbook();
+  const sheet = wb.addWorksheet(sheetTitle.slice(0, 31) || "Report");
+  const columns = ["Name", "Parent Group", "Opening Balance", "Closing Balance"];
+
+  addTitleRows(sheet, titleLines, columns.length);
+  const headerRow = sheet.addRow(columns);
+  styleHeaderRow(headerRow);
+
+  for (const g of groups) {
+    sheet.addRow([g.name ?? "", g.parent ?? "", g.openingBalance ?? 0, g.closingBalance ?? 0]);
+  }
+
+  const lastRow = sheet.rowCount;
+  const firstDataRow = headerRow.number + 1;
+  if (lastRow >= firstDataRow) {
+    const totalRow = sheet.addRow([
+      "Total",
+      "",
+      { formula: `SUM(C${firstDataRow}:C${lastRow})` },
+      { formula: `SUM(D${firstDataRow}:D${lastRow})` },
+    ]);
+    totalRow.font = { bold: true };
+  }
+
+  sheet.columns = [
+    { width: 34 },
+    { width: 28 },
+    { width: 18, style: { numFmt: "#,##0.00" } },
+    { width: 18, style: { numFmt: "#,##0.00" } },
+  ];
+  sheet.autoFilter = { from: { row: headerRow.number, column: 1 }, to: { row: headerRow.number, column: columns.length } };
+  sheet.views = [{ state: "frozen", ySplit: headerRow.number }];
+  return wb;
+}
+
 /** Recursively finds the largest array of sibling objects anywhere in a parsed Tally response. */
 function findMainArray(value: unknown, path = ""): { path: string; items: any[] } | null {
   let best: { path: string; items: any[] } | null = null;

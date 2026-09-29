@@ -13,12 +13,14 @@ export interface ReportCatalogEntry {
    * type - this gives reliable tabular data for register-style reports.
    * "ledgerCollection" is fetched as a flat list of ledger accounts (same
    * mechanism as the list_ledgers tool).
+   * "groupCollection" is fetched as a flat list of ledger groups (same
+   * mechanism as the list_groups tool), with balances.
    * "namedReport" reports are fetched via Tally's "Export Data" request for
    * a built-in report name; their shape varies by report, so the exporter
    * flattens the largest repeating structure it finds into a table.
    * "custom" lets the user type any other Tally report name.
    */
-  kind: "voucherCollection" | "ledgerCollection" | "namedReport" | "custom";
+  kind: "voucherCollection" | "ledgerCollection" | "groupCollection" | "namedReport" | "custom";
   reportName?: string;
   voucherTypeFilter?: string;
 }
@@ -31,6 +33,7 @@ export const REPORT_CATALOG: ReportCatalogEntry[] = [
   { id: "funds_flow", label: "Funds Flow", dateMode: "range", kind: "namedReport", reportName: "Funds Flow" },
   { id: "ratio_analysis", label: "Ratio Analysis", dateMode: "range", kind: "namedReport", reportName: "Ratio Analysis" },
   { id: "all_ledgers", label: "All Ledger Accounts", dateMode: "asOf", kind: "ledgerCollection" },
+  { id: "all_groups", label: "All Group Ledgers", dateMode: "asOf", kind: "groupCollection" },
   { id: "day_book", label: "Day Book", dateMode: "range", kind: "voucherCollection" },
   { id: "sales_register", label: "Sales Register", dateMode: "range", kind: "voucherCollection", voucherTypeFilter: "Sales" },
   { id: "purchase_register", label: "Purchase Register", dateMode: "range", kind: "voucherCollection", voucherTypeFilter: "Purchase" },
