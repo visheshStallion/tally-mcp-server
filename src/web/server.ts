@@ -6,7 +6,9 @@ import express from "express";
 import { TallyClient } from "../tally-client.js";
 import { asArray, unwrapValue } from "../format.js";
 import { REPORT_CATALOG, findReport } from "./report-catalog.js";
-import { buildGenericReportWorkbook, buildVoucherWorkbook } from "./xlsx-export.js";
+import { buildGenericReportWorkbook, buildLedgerWorkbook, buildVoucherWorkbook } from "./xlsx-export.js";
+
+const LEDGER_FIELDS = ["NAME", "PARENT", "OPENINGBALANCE", "CLOSINGBALANCE", "GSTIN", "MAILINGNAME"];
 
 const TALLY_URL = process.env.TALLY_URL ?? "http://localhost:9200";
 const TALLY_COMPANY = process.env.TALLY_COMPANY;
@@ -123,6 +125,19 @@ app.get("/api/export", async (req, res) => {
           amount: Number(unwrapValue(v.AMOUNT)) || 0,
         }));
       workbook = buildVoucherWorkbook(vouchers, label, titleLines);
+    } else if (entry.kind === "ledgerCollection") {
+      const collection = await tallyClient.fetchCollection("Ledger", LEDGER_FIELDS, {
+        staticVars: toDate ? { SVTODATE: toDate } : {},
+      });
+      const ledgers = asArray(collection.LEDGER).map((l: any) => ({
+        name: unwrapValue(l.NAME ?? l["@_NAME"]),
+        parent: unwrapValue(l.PARENT),
+        openingBalance: Number(unwrapValue(l.OPENINGBALANCE)) || 0,
+        closingBalance: Number(unwrapValue(l.CLOSINGBALANCE)) || 0,
+        gstin: unwrapValue(l.GSTIN),
+        mailingName: unwrapValue(l.MAILINGNAME),
+      }));
+      workbook = buildLedgerWorkbook(ledgers, label, titleLines);
     } else {
       const reportName = entry.kind === "custom" ? customReportName : entry.reportName;
       if (!reportName) {

@@ -106,19 +106,20 @@ This starts an HTTP server (default `http://127.0.0.1:4000`, only bound to
 localhost) serving a page where you can:
 
 1. Pick a report from the dropdown (all the report tools listed above, plus
+   "All Ledger Accounts" - the full chart of accounts with balances - and
    a "Custom / other report..." option for typing any other Tally report
    name, e.g. a GST return).
 2. Set a **From date** / **To date** (or a single **As of date** for
-   point-in-time reports like the Balance Sheet).
+   point-in-time reports like the Balance Sheet and All Ledger Accounts).
 3. Click **Export to Excel** to download an `.xlsx` file fetched live from
    Tally for that date range.
 
-Day Book, Sales Register, and Purchase Register are exported as a flat
-voucher table. Statement-style reports (Balance Sheet, P&L, Cash Flow,
-Ratio Analysis, etc.) don't share one common layout, so the export
-auto-detects the largest repeating structure in Tally's response for the
-main "Data" sheet, and always includes a "Raw JSON" sheet with the complete
-response as a fallback.
+Day Book, Sales Register, Purchase Register, and All Ledger Accounts are
+exported as a flat table. Statement-style reports (Balance Sheet, P&L,
+Cash Flow, Ratio Analysis, etc.) don't share one common layout, so the
+export auto-detects the largest repeating structure in Tally's response for
+the main "Data" sheet, and always includes a "Raw JSON" sheet with the
+complete response as a fallback.
 
 Configure it with the same `TALLY_URL` / `TALLY_COMPANY` environment
 variables as the MCP server, plus:
