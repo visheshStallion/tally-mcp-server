@@ -71,6 +71,7 @@
   .date-row { display: flex; gap: 16px; }
   .date-row .field { flex: 1; }
   #customReportField { display: none; }
+  #itemNameField { display: none; }
   button {
     background: var(--navy);
     color: white;
@@ -115,6 +116,11 @@
       <input type="text" id="customReportName" placeholder='e.g. "GSTR-1" or "Group Summary"' />
     </div>
 
+    <div id="itemNameField" class="field">
+      <label for="itemName">Stock item name</label>
+      <input type="text" id="itemName" placeholder='e.g. "Widget A" (matches any item name containing this text)' />
+    </div>
+
     <div class="date-row">
       <div class="field">
         <label for="fromDate" id="fromDateLabel">From date</label>
@@ -137,6 +143,8 @@
   const reportSelect = document.getElementById("reportSelect");
   const customField = document.getElementById("customReportField");
   const customReportName = document.getElementById("customReportName");
+  const itemNameField = document.getElementById("itemNameField");
+  const itemName = document.getElementById("itemName");
   const fromDate = document.getElementById("fromDate");
   const toDate = document.getElementById("toDate");
   const fromDateLabel = document.getElementById("fromDateLabel");
@@ -155,6 +163,7 @@
     const entry = reports.find((r) => r.id === reportSelect.value);
     if (!entry) return;
     customField.style.display = entry.id === "custom_report" ? "block" : "none";
+    itemNameField.style.display = entry.requiresItemName ? "block" : "none";
     if (entry.dateMode === "asOf") {
       fromDate.closest(".field").style.display = "none";
       toDateLabel.textContent = "As of date";
@@ -181,11 +190,16 @@
       setStatus("error", "Enter the exact Tally report name for a custom report.");
       return;
     }
+    if (entry.requiresItemName && !itemName.value.trim()) {
+      setStatus("error", "Enter a stock item name.");
+      return;
+    }
 
     const params = new URLSearchParams({ report: entry.id });
     if (entry.dateMode === "range" && fromDate.value) params.set("fromDate", fromDate.value);
     if (toDate.value) params.set("toDate", toDate.value);
     if (entry.id === "custom_report") params.set("customReportName", customReportName.value.trim());
+    if (entry.requiresItemName) params.set("itemName", itemName.value.trim());
 
     exportBtn.disabled = true;
     setStatus("info", "Fetching data from Tally...");

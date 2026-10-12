@@ -138,6 +138,16 @@ Summary" (entry count and Dr/Cr totals per ledger), and "Inventory Details"
 (stock item/quantity/rate lines, included only when the vouchers in range
 carry any).
 
+### Inventory reports
+
+| Report | Covers |
+|--------|--------|
+| **Current Stock of All Items** | Every stock item's stock group, base unit, closing quantity, rate, and value as of a date - the flat item list behind Tally's Stock Summary. |
+| **Stock Item History (single item)** | One named stock item's full movement history over a date range: every voucher that touched it, with quantity, rate, amount, and a running quantity balance. Type any part of the item's name (matches by substring) in the "Stock item name" field that appears when this report is selected. |
+| **Godown-wise Stock** | Every stock item's quantity and value broken down by godown, totalled from all voucher inventory entries (and their batch/godown allocations) in the date range - set **From date** far enough back to capture true opening stock. |
+| **Item's Last Purchase & Sale Price** | For every stock item bought or sold in the date range, the most recent purchase rate/date/voucher and the most recent sale rate/date/voucher. |
+| **Items to Reorder (Reorder Status)** | Tally's built-in Reorder Status report, fetched like the other named reports above (auto-flattened, with a Raw JSON fallback sheet). |
+
 Configure it with the same `TALLY_URL` / `TALLY_COMPANY` environment
 variables as the MCP server, plus:
 

@@ -325,6 +325,167 @@ export function buildLedgerEntriesWorkbook(
   return wb;
 }
 
+/** Builds a workbook with one flat table of stock items (Current Stock of All Items). */
+export function buildStockItemWorkbook(
+  items: Array<{ name?: string; parent?: string; baseUnit?: string; closingBalance?: string; closingRate?: string; closingValue?: number }>,
+  sheetTitle: string,
+  titleLines: string[]
+): ExcelJS.Workbook {
+  const wb = new ExcelJS.Workbook();
+  const sheet = wb.addWorksheet(sheetTitle.slice(0, 31) || "Report");
+  const columns = ["Name", "Stock Group", "Base Unit", "Closing Qty", "Closing Rate", "Closing Value"];
+
+  addTitleRows(sheet, titleLines, columns.length);
+  const headerRow = sheet.addRow(columns);
+  styleHeaderRow(headerRow);
+
+  for (const i of items) {
+    sheet.addRow([i.name ?? "", i.parent ?? "", i.baseUnit ?? "", i.closingBalance ?? "", i.closingRate ?? "", i.closingValue ?? 0]);
+  }
+
+  const lastRow = sheet.rowCount;
+  const firstDataRow = headerRow.number + 1;
+  if (lastRow >= firstDataRow) {
+    const totalRow = sheet.addRow(["Total", "", "", "", "", { formula: `SUM(F${firstDataRow}:F${lastRow})` }]);
+    totalRow.font = { bold: true };
+  }
+
+  sheet.columns = [
+    { width: 34 },
+    { width: 24 },
+    { width: 14 },
+    { width: 16 },
+    { width: 16 },
+    { width: 18, style: { numFmt: "#,##0.00" } },
+  ];
+  sheet.autoFilter = { from: { row: headerRow.number, column: 1 }, to: { row: headerRow.number, column: columns.length } };
+  sheet.views = [{ state: "frozen", ySplit: headerRow.number }];
+  return wb;
+}
+
+export interface StockItemHistoryRow {
+  date: string;
+  voucherType: string;
+  voucherNumber: string;
+  partyLedger: string;
+  quantity: string;
+  rate: string;
+  amount: number;
+  runningQty: number;
+  narration: string;
+}
+
+/** Builds a workbook with one named stock item's chronological movement history (quantity in/out, running balance). */
+export function buildStockItemHistoryWorkbook(itemName: string, rows: StockItemHistoryRow[], titleLines: string[]): ExcelJS.Workbook {
+  const wb = new ExcelJS.Workbook();
+  const sheet = wb.addWorksheet("Item History".slice(0, 31));
+  const columns = ["Date", "Voucher Type", "Voucher Number", "Party Ledger", "Quantity", "Rate", "Amount", "Running Qty", "Narration"];
+
+  addTitleRows(sheet, [`Stock Item: ${itemName}`, ...titleLines], columns.length);
+  const headerRow = sheet.addRow(columns);
+  styleHeaderRow(headerRow);
+
+  for (const r of rows) {
+    sheet.addRow([r.date, r.voucherType, r.voucherNumber, r.partyLedger, r.quantity, r.rate, r.amount, r.runningQty, r.narration]);
+  }
+
+  sheet.columns = [
+    { width: 12 },
+    { width: 20 },
+    { width: 18 },
+    { width: 32 },
+    { width: 16 },
+    { width: 16 },
+    { width: 16, style: { numFmt: "#,##0.00" } },
+    { width: 14, style: { numFmt: "#,##0.00" } },
+    { width: 50 },
+  ];
+  sheet.autoFilter = { from: { row: headerRow.number, column: 1 }, to: { row: headerRow.number, column: columns.length } };
+  sheet.views = [{ state: "frozen", ySplit: headerRow.number }];
+  return wb;
+}
+
+export interface GodownStockRow {
+  stockItemName: string;
+  godownName: string;
+  quantity: number;
+  value: number;
+}
+
+/** Builds a workbook with stock item x godown quantity/value totals (Godown-wise Stock). */
+export function buildGodownStockWorkbook(rows: GodownStockRow[], titleLines: string[]): ExcelJS.Workbook {
+  const sorted = [...rows].sort((a, b) => a.stockItemName.localeCompare(b.stockItemName) || a.godownName.localeCompare(b.godownName));
+
+  const wb = new ExcelJS.Workbook();
+  const sheet = wb.addWorksheet("Godown-wise Stock");
+  const columns = ["Stock Item", "Godown", "Quantity", "Value"];
+
+  addTitleRows(sheet, titleLines, columns.length);
+  const headerRow = sheet.addRow(columns);
+  styleHeaderRow(headerRow);
+
+  for (const r of sorted) {
+    sheet.addRow([r.stockItemName, r.godownName, r.quantity, r.value]);
+  }
+
+  const lastRow = sheet.rowCount;
+  const firstDataRow = headerRow.number + 1;
+  if (lastRow >= firstDataRow) {
+    const totalRow = sheet.addRow(["Total", "", { formula: `SUM(C${firstDataRow}:C${lastRow})` }, { formula: `SUM(D${firstDataRow}:D${lastRow})` }]);
+    totalRow.font = { bold: true };
+  }
+
+  sheet.columns = [
+    { width: 34 },
+    { width: 26 },
+    { width: 16, style: { numFmt: "#,##0.00" } },
+    { width: 18, style: { numFmt: "#,##0.00" } },
+  ];
+  sheet.autoFilter = { from: { row: headerRow.number, column: 1 }, to: { row: headerRow.number, column: columns.length } };
+  sheet.views = [{ state: "frozen", ySplit: headerRow.number }];
+  return wb;
+}
+
+export interface ItemLastPriceRow {
+  stockItemName: string;
+  lastPurchaseDate: string;
+  lastPurchaseRate: string;
+  lastPurchaseVoucher: string;
+  lastSaleDate: string;
+  lastSaleRate: string;
+  lastSaleVoucher: string;
+}
+
+/** Builds a workbook with each stock item's most recent purchase and sale rate in the date range. */
+export function buildItemLastPricesWorkbook(rows: ItemLastPriceRow[], titleLines: string[]): ExcelJS.Workbook {
+  const sorted = [...rows].sort((a, b) => a.stockItemName.localeCompare(b.stockItemName));
+
+  const wb = new ExcelJS.Workbook();
+  const sheet = wb.addWorksheet("Last Purchase & Sale Price");
+  const columns = ["Stock Item", "Last Purchase Date", "Last Purchase Rate", "Last Purchase Voucher", "Last Sale Date", "Last Sale Rate", "Last Sale Voucher"];
+
+  addTitleRows(sheet, titleLines, columns.length);
+  const headerRow = sheet.addRow(columns);
+  styleHeaderRow(headerRow);
+
+  for (const r of sorted) {
+    sheet.addRow([r.stockItemName, r.lastPurchaseDate, r.lastPurchaseRate, r.lastPurchaseVoucher, r.lastSaleDate, r.lastSaleRate, r.lastSaleVoucher]);
+  }
+
+  sheet.columns = [
+    { width: 34 },
+    { width: 16 },
+    { width: 16 },
+    { width: 20 },
+    { width: 16 },
+    { width: 16 },
+    { width: 20 },
+  ];
+  sheet.autoFilter = { from: { row: headerRow.number, column: 1 }, to: { row: headerRow.number, column: columns.length } };
+  sheet.views = [{ state: "frozen", ySplit: headerRow.number }];
+  return wb;
+}
+
 /** Recursively finds the largest array of sibling objects anywhere in a parsed Tally response. */
 function findMainArray(value: unknown, path = ""): { path: string; items: any[] } | null {
   let best: { path: string; items: any[] } | null = null;
