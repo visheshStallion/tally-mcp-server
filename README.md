@@ -107,9 +107,10 @@ localhost) serving a page where you can:
 
 1. Pick a report from the dropdown (all the report tools listed above, plus
    "All Ledger Accounts" - the full chart of accounts with balances,
-   "All Group Ledgers" - ledger groups with balances, and a
-   "Custom / other report..." option for typing any other Tally report
-   name, e.g. a GST return).
+   "All Group Ledgers" - ledger groups with balances, "All Ledger Accounts
+   (full voucher detail)" and detailed variants of the Sales/Purchase
+   Register (see below), and a "Custom / other report..." option for typing
+   any other Tally report name, e.g. a GST return).
 2. Set a **From date** / **To date** (or a single **As of date** for
    point-in-time reports like the Balance Sheet, All Ledger Accounts, and
    All Group Ledgers).
@@ -122,6 +123,20 @@ Group Ledgers are exported as a flat table. Statement-style reports
 common layout, so the export auto-detects the largest repeating structure
 in Tally's response for the main "Data" sheet, and always includes a
 "Raw JSON" sheet with the complete response as a fallback.
+
+**"All Ledger Accounts (full voucher detail)"**, **"Sales Register (full
+ledger detail)"**, and **"Purchase Register (full ledger detail)"** go one
+level deeper than the flat voucher tables above: every voucher in the date
+range is broken down into its individual ledger postings (one row per
+debit/credit line, grouped by ledger account), including narration,
+bill-wise references (new/against bill), and mode-of-payment/bank details
+(cheque/instrument number, date, bank name, status) where present - this is
+the data behind Tally's "Show Narrations / Bill-wise details / Mode of
+Payment" export options, pulled directly rather than via that dialog. The
+workbook has three sheets: "Ledger Entries" (the full detail), "By Ledger
+Summary" (entry count and Dr/Cr totals per ledger), and "Inventory Details"
+(stock item/quantity/rate lines, included only when the vouchers in range
+carry any).
 
 Configure it with the same `TALLY_URL` / `TALLY_COMPANY` environment
 variables as the MCP server, plus:

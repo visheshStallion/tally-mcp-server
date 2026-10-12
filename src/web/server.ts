@@ -6,10 +6,79 @@ import express from "express";
 import { TallyClient } from "../tally-client.js";
 import { asArray, unwrapValue } from "../format.js";
 import { REPORT_CATALOG, findReport } from "./report-catalog.js";
-import { buildGenericReportWorkbook, buildGroupWorkbook, buildLedgerWorkbook, buildVoucherWorkbook } from "./xlsx-export.js";
+import {
+  buildGenericReportWorkbook,
+  buildGroupWorkbook,
+  buildLedgerEntriesWorkbook,
+  buildLedgerWorkbook,
+  buildVoucherWorkbook,
+  type InventoryEntryRow,
+  type LedgerEntryRow,
+} from "./xlsx-export.js";
 
 const LEDGER_FIELDS = ["NAME", "PARENT", "OPENINGBALANCE", "CLOSINGBALANCE", "GSTIN", "MAILINGNAME"];
 const GROUP_FIELDS = ["NAME", "PARENT", "OPENINGBALANCE", "CLOSINGBALANCE"];
+const VOUCHER_DETAIL_FIELDS = [
+  "DATE",
+  "VOUCHERTYPENAME",
+  "VOUCHERNUMBER",
+  "PARTYLEDGERNAME",
+  "NARRATION",
+  "ALLLEDGERENTRIES.LIST",
+  "ALLINVENTORYENTRIES.LIST",
+];
+
+/** Formats a ledger entry's bill-wise allocations (BILLALLOCATIONS.LIST), e.g. "Inv-002 (New Ref): 11800.00". */
+function formatBillDetails(ledgerEntry: any): string {
+  return asArray(ledgerEntry?.["BILLALLOCATIONS.LIST"])
+    .map((b: any) => {
+      const name = unwrapValue(b.NAME) ?? "";
+      const billType = unwrapValue(b.BILLTYPE) ?? "";
+      const amount = unwrapValue(b.AMOUNT) ?? "";
+      return billType ? `${name} (${billType}): ${amount}` : `${name}: ${amount}`;
+    })
+    .filter(Boolean)
+    .join("; ");
+}
+
+/** Formats a ledger entry's mode-of-payment/receipt bank details (BANKALLOCATIONS.LIST). */
+function formatBankDetails(ledgerEntry: any): string {
+  return asArray(ledgerEntry?.["BANKALLOCATIONS.LIST"])
+    .map((b: any) => {
+      const parts: string[] = [];
+      const transactionType = unwrapValue(b.TRANSACTIONTYPE);
+      const instrumentNumber = unwrapValue(b.INSTRUMENTNUMBER);
+      const instrumentDate = unwrapValue(b.INSTRUMENTDATE);
+      const bankName = unwrapValue(b.BANKNAME) ?? unwrapValue(b.NAME);
+      const favouring = unwrapValue(b.PAYMENTFAVOURING);
+      const status = unwrapValue(b.STATUS) ?? unwrapValue(b.TRANSACTIONREFERENCE);
+      if (transactionType) parts.push(String(transactionType));
+      if (instrumentNumber) parts.push(`Instrument #${instrumentNumber}`);
+      if (instrumentDate) parts.push(`Dated ${instrumentDate}`);
+      if (bankName) parts.push(`Bank: ${bankName}`);
+      if (favouring) parts.push(`Favouring: ${favouring}`);
+      if (status) parts.push(`Status: ${status}`);
+      return parts.join(", ");
+    })
+    .filter(Boolean)
+    .join(" | ");
+}
+
+/** UDF:FLDDELETED is the reliable "this voucher was deleted" signal on this Tally setup (ISDELETED stays "No" regardless). */
+function isVoucherDeleted(v: any): boolean {
+  return unwrapValue(v?.["UDF:FLDDELETED.LIST"]?.["UDF:FLDDELETED"]) === "Yes";
+}
+
+/**
+ * Unwraps and stringifies a Tally XML field. fast-xml-parser's parseTagValue
+ * option turns numeric-looking tag content (e.g. a bare <DATE>20250105</DATE>
+ * with no type attribute) into a JS number, which breaks string ops like
+ * .localeCompare() downstream - this normalizes every such field to a string.
+ */
+function str(v: unknown): string {
+  const u = unwrapValue(v);
+  return u === null || u === undefined ? "" : String(u);
+}
 
 const TALLY_URL = process.env.TALLY_URL ?? "http://localhost:9200";
 const TALLY_COMPANY = process.env.TALLY_COMPANY;
@@ -114,18 +183,65 @@ app.get("/api/export", async (req, res) => {
         filters,
         staticVars: { SVFROMDATE: fromDate, SVTODATE: toDate },
       });
-      const isFldDeleted = (v: any) => unwrapValue(v?.["UDF:FLDDELETED.LIST"]?.["UDF:FLDDELETED"]) === "Yes";
       const vouchers = asArray(collection.VOUCHER)
-        .filter((v: any) => !isFldDeleted(v))
+        .filter((v: any) => !isVoucherDeleted(v))
         .map((v: any) => ({
-          date: unwrapValue(v.DATE),
-          voucherType: unwrapValue(v.VOUCHERTYPENAME),
-          voucherNumber: unwrapValue(v.VOUCHERNUMBER),
-          partyLedger: unwrapValue(v.PARTYLEDGERNAME),
-          narration: unwrapValue(v.NARRATION),
+          date: str(v.DATE),
+          voucherType: str(v.VOUCHERTYPENAME),
+          voucherNumber: str(v.VOUCHERNUMBER),
+          partyLedger: str(v.PARTYLEDGERNAME),
+          narration: str(v.NARRATION),
           amount: Number(unwrapValue(v.AMOUNT)) || 0,
         }));
       workbook = buildVoucherWorkbook(vouchers, label, titleLines);
+    } else if (entry.kind === "ledgerVoucherDetail") {
+      if (!fromDate || !toDate) {
+        res.status(400).json({ error: `"${entry.label}" requires both a from date and a to date.` });
+        return;
+      }
+      const filters = entry.voucherTypeFilter ? [`$VoucherTypeName = "${entry.voucherTypeFilter}"`] : [];
+      const collection = await tallyClient.fetchCollection("Voucher", VOUCHER_DETAIL_FIELDS, {
+        filters,
+        staticVars: { SVFROMDATE: fromDate, SVTODATE: toDate },
+      });
+      const entries: LedgerEntryRow[] = [];
+      const inventoryEntries: InventoryEntryRow[] = [];
+      for (const v of asArray(collection.VOUCHER)) {
+        if (isVoucherDeleted(v)) continue;
+        const date = str(v.DATE);
+        const voucherType = str(v.VOUCHERTYPENAME);
+        const voucherNumber = str(v.VOUCHERNUMBER);
+        const partyLedger = str(v.PARTYLEDGERNAME);
+        const narration = str(v.NARRATION);
+        for (const le of asArray(v["ALLLEDGERENTRIES.LIST"])) {
+          entries.push({
+            ledgerName: str(le.LEDGERNAME),
+            date,
+            voucherType,
+            voucherNumber,
+            partyLedger,
+            isDebit: unwrapValue(le.ISDEEMEDPOSITIVE) === "Yes",
+            amount: Math.abs(Number(unwrapValue(le.AMOUNT)) || 0),
+            narration,
+            billDetails: formatBillDetails(le) || undefined,
+            bankDetails: formatBankDetails(le) || undefined,
+          });
+        }
+        for (const inv of asArray(v["ALLINVENTORYENTRIES.LIST"])) {
+          inventoryEntries.push({
+            date,
+            voucherType,
+            voucherNumber,
+            partyLedger,
+            stockItemName: str(inv.STOCKITEMNAME),
+            actualQty: str(inv.ACTUALQTY),
+            billedQty: str(inv.BILLEDQTY),
+            rate: str(inv.RATE),
+            amount: Number(unwrapValue(inv.AMOUNT)) || 0,
+          });
+        }
+      }
+      workbook = buildLedgerEntriesWorkbook(entries, label, titleLines, inventoryEntries);
     } else if (entry.kind === "ledgerCollection") {
       const collection = await tallyClient.fetchCollection("Ledger", LEDGER_FIELDS, {
         staticVars: toDate ? { SVTODATE: toDate } : {},

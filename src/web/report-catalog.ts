@@ -15,12 +15,16 @@ export interface ReportCatalogEntry {
    * mechanism as the list_ledgers tool).
    * "groupCollection" is fetched as a flat list of ledger groups (same
    * mechanism as the list_groups tool), with balances.
+   * "ledgerVoucherDetail" fetches every voucher in the date range along with
+   * its full ledger-entry breakdown (one row per ledger posting, with
+   * narration, voucher type/number, and Dr/Cr amount) - a full transaction
+   * history for every ledger account, not just balances.
    * "namedReport" reports are fetched via Tally's "Export Data" request for
    * a built-in report name; their shape varies by report, so the exporter
    * flattens the largest repeating structure it finds into a table.
    * "custom" lets the user type any other Tally report name.
    */
-  kind: "voucherCollection" | "ledgerCollection" | "groupCollection" | "namedReport" | "custom";
+  kind: "voucherCollection" | "ledgerCollection" | "groupCollection" | "ledgerVoucherDetail" | "namedReport" | "custom";
   reportName?: string;
   voucherTypeFilter?: string;
 }
@@ -33,10 +37,13 @@ export const REPORT_CATALOG: ReportCatalogEntry[] = [
   { id: "funds_flow", label: "Funds Flow", dateMode: "range", kind: "namedReport", reportName: "Funds Flow" },
   { id: "ratio_analysis", label: "Ratio Analysis", dateMode: "range", kind: "namedReport", reportName: "Ratio Analysis" },
   { id: "all_ledgers", label: "All Ledger Accounts", dateMode: "asOf", kind: "ledgerCollection" },
+  { id: "all_ledgers_detail", label: "All Ledger Accounts (full voucher detail)", dateMode: "range", kind: "ledgerVoucherDetail" },
   { id: "all_groups", label: "All Group Ledgers", dateMode: "asOf", kind: "groupCollection" },
   { id: "day_book", label: "Day Book", dateMode: "range", kind: "voucherCollection" },
   { id: "sales_register", label: "Sales Register", dateMode: "range", kind: "voucherCollection", voucherTypeFilter: "Sales" },
+  { id: "sales_register_detail", label: "Sales Register (full ledger detail)", dateMode: "range", kind: "ledgerVoucherDetail", voucherTypeFilter: "Sales" },
   { id: "purchase_register", label: "Purchase Register", dateMode: "range", kind: "voucherCollection", voucherTypeFilter: "Purchase" },
+  { id: "purchase_register_detail", label: "Purchase Register (full ledger detail)", dateMode: "range", kind: "ledgerVoucherDetail", voucherTypeFilter: "Purchase" },
   { id: "receivables", label: "Outstanding Receivables (Bills Receivable)", dateMode: "asOf", kind: "namedReport", reportName: "Bills Receivable" },
   { id: "payables", label: "Outstanding Payables (Bills Payable)", dateMode: "asOf", kind: "namedReport", reportName: "Bills Payable" },
   { id: "stock_summary", label: "Stock Summary", dateMode: "asOf", kind: "namedReport", reportName: "Stock Summary" },
