@@ -102,6 +102,14 @@ npm run web        # run directly with tsx, no build step
 npm run web:start   # run the compiled server
 ```
 
+On Windows, **double-click `scripts/run_web_ui.bat`** instead to do all of
+this in one step: it pulls the latest changes, installs/builds, starts the
+server (bound to the network by default so others can reach it - edit
+`WEB_HOST`/`WEB_USERNAME`/`WEB_PASSWORD` at the top of the file to change
+that), opens it in your browser, and prints both a `localhost` link for
+yourself and a network link you can hand to someone else on the same
+Wi-Fi/office network to test it.
+
 This starts an HTTP server (default `http://127.0.0.1:4000`, only bound to
 localhost) serving a page where you can:
 
