@@ -110,6 +110,17 @@ that), opens it in your browser, and prints both a `localhost` link for
 yourself and a network link you can hand to someone else on the same
 Wi-Fi/office network to test it.
 
+For a personal one-click launcher instead of a double-click each time, run
+`scripts/register_tallyweb_link.bat` once (user-scoped registry change, no
+admin rights needed) to register a `tallyweb://start` link on that machine
+that runs `run_web_ui.bat` for you - paste `tallyweb://start` into the
+browser's address bar or save it as a shortcut target. This is a
+*personal* convenience for the machine it was set up on, not something you
+can hand to someone else's untouched PC and have it work there - no link
+can do that, by design (browsers always ask to confirm before opening a
+custom-protocol link like this one; that confirmation can't be removed).
+Run `scripts/unregister_tallyweb_link.bat` to remove it again.
+
 This starts an HTTP server (default `http://127.0.0.1:4000`, only bound to
 localhost) serving a page where you can:
 
